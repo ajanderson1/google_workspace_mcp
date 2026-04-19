@@ -833,22 +833,37 @@ def get_credentials(
     # Check for single-user mode
     if os.getenv("MCP_SINGLE_USER_MODE") == "1":
         logger.info(
-            "[get_credentials] Single-user mode: bypassing session mapping, finding any credentials"
+            "[get_credentials] Single-user mode: bypassing session mapping"
         )
-        credentials, found_user_email = _find_any_credentials(credentials_base_dir)
+
+        # If a specific user email was provided, try loading their credentials first
+        if user_google_email:
+            store = get_credential_store()
+            credentials = store.get_credential(user_google_email)
+            if credentials:
+                logger.info(
+                    f"[get_credentials] Single-user mode: loaded credentials for requested user {user_google_email}"
+                )
+            else:
+                logger.info(
+                    f"[get_credentials] Single-user mode: no credentials for {user_google_email}, trying any credentials"
+                )
+                credentials, found_user_email = _find_any_credentials(credentials_base_dir)
+                if found_user_email:
+                    user_google_email = found_user_email
+        else:
+            credentials, found_user_email = _find_any_credentials(credentials_base_dir)
+            if found_user_email:
+                user_google_email = found_user_email
+                logger.debug(
+                    f"[get_credentials] Single-user mode: using email {user_google_email} from credential file"
+                )
+
         if not credentials:
             logger.info(
                 f"[get_credentials] Single-user mode: No credentials found in {credentials_base_dir}"
             )
             return None
-
-        # Use the email from the credential file if not provided
-        # This ensures we can save refreshed credentials even when the token is expired
-        if not user_google_email and found_user_email:
-            user_google_email = found_user_email
-            logger.debug(
-                f"[get_credentials] Single-user mode: using email {user_google_email} from credential file"
-            )
     else:
         credentials: Optional[Credentials] = None
 
